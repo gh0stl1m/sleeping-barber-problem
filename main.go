@@ -23,6 +23,7 @@ package main
 import (
 	"math/rand"
 	"time"
+  "fmt"
 
 	"github.com/fatih/color"
 )
@@ -44,6 +45,8 @@ func main() {
 
   clientsCh := make(chan string, SEATING_CAPACITY)
   doneCh := make(chan bool)
+  shopClosing := make(chan bool)
+  closed := make(chan bool)
 
   shop := BarberShop{
     ShopCapacity: SEATING_CAPACITY,
@@ -54,9 +57,43 @@ func main() {
     Open: true,
   }
 
+
   shop.addBarber("Frank")
 
   color.Green("Barbershop is open for the day")
 
-  time.Sleep(5 * time.Second)
+  go start(shopClosing, closed, shop)
+  go addClients(shopClosing, closed, shop)
+
+  <-closed
+}
+
+
+func start(shopClosingCh, closedCh chan bool, shop BarberShop) {
+
+
+  <-time.After(TIME_OPEN)
+  shopClosingCh <- true
+  shop.close()
+  closedCh <- true
+}
+
+func addClients(shopClosingCh, closedCh chan bool, shop BarberShop) {
+
+  clientNumber := 1
+
+  for {
+
+    randomMilliseconds := rand.Int() % (2 * ARRIVAL_RATE)
+
+    select {
+
+    case <-shopClosingCh:
+      return
+    case <-time.After(time.Millisecond * time.Duration(randomMilliseconds)):
+
+      shop.addClient(fmt.Sprintf("Client #%d", clientNumber))
+      clientNumber++
+    }
+  }
 }
